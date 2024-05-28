@@ -12,10 +12,6 @@ buildscript {
         multiDexEnabled = true
         googlePlayServicesVersion = "17.0.0"
         kotlinVersion = '1.8.10'
-
-        // This property configures the type of Mapbox SDK used by the @rnmapbox/maps library.
-        // "mapbox" indicates the usage of the Mapbox SDK.
-        RNMapboxMapsImpl = "mapbox"
     }
     repositories {
         google()
@@ -30,6 +26,7 @@ buildscript {
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+        classpath "com.google.android.libraries.mapsplatform.secrets-gradle-plugin:secrets-gradle-plugin:2.0.1"
     }
 }
 
@@ -61,6 +58,9 @@ allprojects {
             url("$rootDir/../node_modules/react-native/android")
         }
         maven {
+            url "https://s01.oss.sonatype.org/content/groups/staging/"
+        }
+        maven {
             // Mapbox SDK requires authentication to download from Mapbox's private Maven repository.
             url 'https://api.mapbox.com/downloads/v2/releases/maven'
             authentication {
@@ -76,6 +76,10 @@ allprojects {
                 // Example gradle.properties entry:
                 // MAPBOX_DOWNLOADS_TOKEN=YOUR_SECRET_TOKEN_HERE
                 password = project.properties['MAPBOX_DOWNLOADS_TOKEN'] ?: ""
+            }
+            // Azure Maps Maven repository
+            maven {
+                url = project.uri("https://atlas.microsoft.com/sdk/android")
             }
         }
     }

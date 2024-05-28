@@ -96,4 +96,6 @@ export default {
         IOS_CLIENT_ID: '921154746561-s3uqn2oe4m85tufi6mqflbfbuajrm2i3.apps.googleusercontent.com',
     },
     GCP_GEOLOCATION_API_KEY: googleGeolocationAPIKey,
+    MAPBOX_PUBLIC_TOKEN: get(Config, 'MAPBOX_PUBLIC_TOKEN', ''),
+    AZURE_MAPS_SUBSCRIPTION_KEY: get(Config, 'AZURE_MAPS_SUBSCRIPTION_KEY', ''),
 } as const;

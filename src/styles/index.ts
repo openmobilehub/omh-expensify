@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type {LineLayerStyleProps} from '@rnmapbox/maps/src/utils/MapboxStyles';
+// import type {LineLayerStyleProps} from '@rnmapbox/maps/src/utils/MapboxStyles';
 import lodashClamp from 'lodash/clamp';
 import type {LineLayer} from 'react-map-gl';
 import type {AnimatableNumericValue, Animated, ImageStyle, TextStyle, ViewStyle} from 'react-native';
@@ -70,7 +70,7 @@ type Translation = 'perspective' | 'rotate' | 'rotateX' | 'rotateY' | 'rotateZ' 
 
 type OfflineFeedbackStyle = Record<'deleted' | 'pending' | 'error' | 'container' | 'textContainer' | 'text' | 'errorDot', ViewStyle | TextStyle>;
 
-type MapDirectionStyle = Pick<LineLayerStyleProps, 'lineColor' | 'lineWidth'>;
+type MapDirectionStyle = {}; // Pick<LineLayerStyleProps, 'lineColor' | 'lineWidth'>;
 
 type MapDirectionLayerStyle = Pick<LineLayer, 'layout' | 'paint'>;
 

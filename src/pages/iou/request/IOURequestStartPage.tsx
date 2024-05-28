@@ -152,7 +152,14 @@ function IOURequestStartPage({
                                 >
                                     <TopTab.Screen name={CONST.TAB_REQUEST.MANUAL}>{() => <IOURequestStepAmount route={route} />}</TopTab.Screen>
                                     <TopTab.Screen name={CONST.TAB_REQUEST.SCAN}>{() => <IOURequestStepScan route={route} />}</TopTab.Screen>
-                                    {shouldDisplayDistanceRequest && <TopTab.Screen name={CONST.TAB_REQUEST.DISTANCE}>{() => <IOURequestStepDistance route={route} />}</TopTab.Screen>}
+                                    {shouldDisplayDistanceRequest && (
+                                        <TopTab.Screen
+                                            options={{swipeEnabled: false}}
+                                            name={CONST.TAB_REQUEST.DISTANCE}
+                                        >
+                                            {() => <IOURequestStepDistance route={route} />}
+                                        </TopTab.Screen>
+                                    )}
                                 </OnyxTabNavigator>
                             ) : (
                                 <IOURequestStepAmount route={route} />

@@ -1,3 +1,32 @@
+# OMH Expensify integration - setup instructions
+
+Here are the instructions to run the integrated OMH SDK in Expensify:
+- create `android/local.properties` with:
+    ```properties
+    AZURE_MAPS_SUBSCRIPTION_KEY=
+    MAPBOX_PUBLIC_TOKEN=
+    MAPBOX_DOWNLOADS_TOKEN=
+    GOOGLE_MAPS_API_KEY=
+    ```
+- fill the Mapbox & Azure Maps tokens in `.env`:
+    ```properties
+    MAPBOX_PUBLIC_TOKEN=
+    AZURE_MAPS_SUBSCRIPTION_KEY=
+    ```
+- clone the [OMH RN Maps SDK](https://github.com/openmobilehub/react-native-omh-maps) and in this repo clone perform:
+    - run `yarn` in the root of the SDK
+    - run `yalc publish` in the each of the plugins' directories of the SDK:
+        - in `packages/core`
+        - in `packages/plugin-googlemaps`
+        - in `packages/plugin-openstreetmap`
+        - in `packages/plugin-mapbox`
+        - in `packages/plugin-azuremaps`
+- run `yalc add @openmobilehub/maps-core @openmobilehub/maps-plugin-googlemaps @openmobilehub/maps-plugin-openstreetmap @openmobilehub/maps-plugin-mapbox @openmobilehub/maps-plugin-azuremaps` in the root of this repo
+- run `yarn`
+- run `yarn android` or `yarn ios`
+
+---
+
 <div align="center">
     <a href="https://new.expensify.com">
         <img src="https://raw.githubusercontent.com/Expensify/App/main/web/favicon.png" width="64" height="64" alt="New Expensify Icon">

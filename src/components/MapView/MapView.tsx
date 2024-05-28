@@ -1,200 +1,200 @@
-import {useFocusEffect, useNavigation} from '@react-navigation/native';
-import type {MapState} from '@rnmapbox/maps';
-import Mapbox, {MarkerView, setAccessToken} from '@rnmapbox/maps';
-import {forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef, useState} from 'react';
-import {View} from 'react-native';
+/* eslint-disable no-nested-ternary */
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import type {OmhCoordinate, OmhMapProvider, OmhMapViewRef} from '@openmobilehub/maps-core';
+import {OmhMapsAppleMapsIOSProvider, OmhMapsGoogleMapsIOSProvider, OmhMapsLocationModule, OmhMapsModule, OmhMapView, OmhMarker, OmhPolyline} from '@openmobilehub/maps-core';
+import {OmhMapsAzureMapsProvider} from '@openmobilehub/maps-plugin-azuremaps';
+import {OmhMapsGoogleMapsProvider} from '@openmobilehub/maps-plugin-googlemaps';
+import {OmhMapsMapboxProvider} from '@openmobilehub/maps-plugin-mapbox';
+import {OmhMapsOpenStreetMapProvider} from '@openmobilehub/maps-plugin-openstreetmap';
+import {useFocusEffect} from '@react-navigation/native';
+import _ from 'lodash';
+import {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {Platform, View} from 'react-native';
 import {withOnyx} from 'react-native-onyx';
-import useThemeStyles from '@hooks/useThemeStyles';
-import setUserLocation from '@libs/actions/UserLocation';
+import stopMarkerIcon from '@assets/images/map-marker-stop-icon.png';
+import ButtonWithDropdownMenu from '@components/ButtonWithDropdownMenu';
 import compose from '@libs/compose';
-import getCurrentPosition from '@libs/getCurrentPosition';
+import colors from '@styles/theme/colors';
 import CONST from '@src/CONST';
-import useLocalize from '@src/hooks/useLocalize';
-import useNetwork from '@src/hooks/useNetwork';
 import ONYXKEYS from '@src/ONYXKEYS';
-import Direction from './Direction';
-import type {MapViewHandle} from './MapViewTypes';
-import PendingMapView from './PendingMapView';
-import responder from './responder';
+import CONFIG from '../../CONFIG';
 import type {ComponentProps, MapViewOnyxProps} from './types';
 import utils from './utils';
 
-const MapView = forwardRef<MapViewHandle, ComponentProps>(
-    ({accessToken, style, mapPadding, userLocation: cachedUserLocation, styleURL, pitchEnabled, initialState, waypoints, directionCoordinates, onMapReady, interactive = true}, ref) => {
-        const navigation = useNavigation();
-        const {isOffline} = useNetwork();
-        const {translate} = useLocalize();
-        const styles = useThemeStyles();
+// set up default providers
+OmhMapsModule.initialize({
+    iosProvider: OmhMapsAppleMapsIOSProvider,
+    gmsProvider: OmhMapsGoogleMapsProvider,
+    nonGmsProvider: OmhMapsOpenStreetMapProvider,
+});
 
-        const cameraRef = useRef<Mapbox.Camera>(null);
-        const [isIdle, setIsIdle] = useState(false);
-        const [currentPosition, setCurrentPosition] = useState(cachedUserLocation);
-        const [userInteractedWithMap, setUserInteractedWithMap] = useState(false);
-        const shouldInitializeCurrentPosition = useRef(true);
+// setup up access tokens for Android providers
+if (Platform.OS === 'android') {
+    require('@openmobilehub/maps-plugin-mapbox').OmhMapsPluginMapboxModule.setPublicToken(CONFIG.MAPBOX_PUBLIC_TOKEN);
+    require('@openmobilehub/maps-plugin-azuremaps').OmhMapsPluginAzureMapsModule.setSubscriptionKey(CONFIG.AZURE_MAPS_SUBSCRIPTION_KEY);
+}
 
-        // Determines if map can be panned to user's detected
-        // location without bothering the user. It will return
-        // false if user has already started dragging the map or
-        // if there are one or more waypoints present.
-        const shouldPanMapToCurrentPosition = useCallback(() => !userInteractedWithMap && (!waypoints || waypoints.length === 0), [userInteractedWithMap, waypoints]);
+const DEFAULT_ZOOM = 15;
+const GREEN_RGB_INT = utils.colorStrToInt(colors.green);
+const TARGET_RGB_INT = utils.colorStrToInt(colors.blue300);
 
-        const setCurrentPositionToInitialState = useCallback(() => {
-            // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-            if (cachedUserLocation || !initialState) {
-                return;
-            }
-            setCurrentPosition({longitude: initialState.location[0], latitude: initialState.location[1]});
-        }, [initialState, cachedUserLocation]);
-
-        useFocusEffect(
-            useCallback(() => {
-                if (isOffline) {
-                    return;
-                }
-
-                if (!shouldInitializeCurrentPosition.current) {
-                    return;
-                }
-
-                shouldInitializeCurrentPosition.current = false;
-
-                if (!shouldPanMapToCurrentPosition()) {
-                    setCurrentPositionToInitialState();
-                    return;
-                }
-
-                getCurrentPosition((params) => {
-                    const currentCoords = {longitude: params.coords.longitude, latitude: params.coords.latitude};
-                    setCurrentPosition(currentCoords);
-                    setUserLocation(currentCoords);
-                }, setCurrentPositionToInitialState);
-            }, [isOffline, shouldPanMapToCurrentPosition, setCurrentPositionToInitialState]),
-        );
-
-        useEffect(() => {
-            if (!currentPosition || !cameraRef.current) {
-                return;
-            }
-
-            if (!shouldPanMapToCurrentPosition()) {
-                return;
-            }
-
-            cameraRef.current.setCamera({
-                zoomLevel: CONST.MAPBOX.DEFAULT_ZOOM,
-                animationDuration: 1500,
-                centerCoordinate: [currentPosition.longitude, currentPosition.latitude],
-            });
-        }, [currentPosition, shouldPanMapToCurrentPosition]);
-
-        useImperativeHandle(
-            ref,
-            () => ({
-                flyTo: (location: [number, number], zoomLevel: number = CONST.MAPBOX.DEFAULT_ZOOM, animationDuration?: number) =>
-                    cameraRef.current?.setCamera({zoomLevel, centerCoordinate: location, animationDuration}),
-                fitBounds: (northEast: [number, number], southWest: [number, number], paddingConfig?: number | number[] | undefined, animationDuration?: number | undefined) =>
-                    cameraRef.current?.fitBounds(northEast, southWest, paddingConfig, animationDuration),
-            }),
-            [],
-        );
-
-        // When the page loses focus, we temporarily set the "idled" state to false.
-        // When the page regains focus, the onIdled method of the map will set the actual "idled" state,
-        // which in turn triggers the callback.
-        useFocusEffect(
-            useCallback(() => {
-                if (!waypoints || waypoints.length === 0 || !isIdle) {
-                    return;
-                }
-
-                if (waypoints.length === 1) {
-                    cameraRef.current?.setCamera({
-                        zoomLevel: CONST.MAPBOX.SINGLE_MARKER_ZOOM,
-                        animationDuration: 1500,
-                        centerCoordinate: waypoints[0].coordinate,
-                    });
-                } else {
-                    const {southWest, northEast} = utils.getBounds(
-                        waypoints.map((waypoint) => waypoint.coordinate),
-                        directionCoordinates,
-                    );
-                    cameraRef.current?.fitBounds(northEast, southWest, mapPadding, 1000);
-                }
-            }, [mapPadding, waypoints, isIdle, directionCoordinates]),
-        );
-
-        useEffect(() => {
-            const unsubscribe = navigation.addListener('blur', () => {
-                setIsIdle(false);
-            });
-            return unsubscribe;
-        }, [navigation]);
-
-        useEffect(() => {
-            setAccessToken(accessToken);
-        }, [accessToken]);
-
-        const setMapIdle = (e: MapState) => {
-            if (e.gestures.isGestureActive) {
-                return;
-            }
-            setIsIdle(true);
-            if (onMapReady) {
-                onMapReady();
-            }
+function MapView({style, userLocation: cachedUserLocation, initialState, waypoints, directionCoordinates, onMapReady}: ComponentProps & MapViewOnyxProps) {
+    const mapRef = useRef<OmhMapViewRef | null>(null);
+    const [currentPosition, setCurrentPosition] = useState<OmhCoordinate | null>(() => {
+        const coord = {
+            longitude: (cachedUserLocation as any)?.[0] ?? initialState?.location?.[0],
+            latitude: (cachedUserLocation as any)?.[1] ?? initialState?.location?.[1],
         };
 
-        const centerCoordinate = currentPosition ? [currentPosition.longitude, currentPosition.latitude] : initialState?.location;
-        return !isOffline && Boolean(accessToken) && Boolean(currentPosition) ? (
-            <View style={[style, !interactive ? styles.pointerEventsNone : {}]}>
-                <Mapbox.MapView
-                    style={{flex: 1}}
-                    styleURL={styleURL}
-                    onMapIdle={setMapIdle}
-                    onTouchStart={() => setUserInteractedWithMap(true)}
-                    pitchEnabled={pitchEnabled}
-                    attributionPosition={{...styles.r2, ...styles.b2}}
-                    scaleBarEnabled={false}
-                    logoPosition={{...styles.l2, ...styles.b2}}
-                    // eslint-disable-next-line react/jsx-props-no-spreading
-                    {...responder.panHandlers}
-                >
-                    <Mapbox.Camera
-                        ref={cameraRef}
-                        defaultSettings={{
-                            centerCoordinate,
-                            zoomLevel: initialState?.zoom,
-                        }}
-                        // Include centerCoordinate here as well to address the issue of incorrect coordinates
-                        // displayed after the first render when the app's storage is cleared.
-                        centerCoordinate={centerCoordinate}
-                    />
+        return coord.longitude === null ? null : coord;
+    });
+    const [zoom, setZoom] = useState(initialState?.zoom ?? DEFAULT_ZOOM);
+    const [mapProvider, setMapProvider] = useState<OmhMapProvider>(Platform.OS === 'ios' ? OmhMapsAppleMapsIOSProvider : OmhMapsGoogleMapsProvider);
+    const [mapLoaded, setMapLoaded] = useState(false);
+    const [mapWidth, setMapWidth] = useState(100);
 
-                    {waypoints?.map(({coordinate, markerComponent, id}) => {
-                        const MarkerComponent = markerComponent;
-                        return (
-                            <MarkerView
-                                id={id}
-                                key={id}
-                                coordinate={coordinate}
-                            >
-                                <MarkerComponent />
-                            </MarkerView>
-                        );
-                    })}
+    const lastUpdatedPositionRef = useRef<OmhCoordinate | null>(null);
 
-                    {directionCoordinates && <Direction coordinates={directionCoordinates} />}
-                </Mapbox.MapView>
-            </View>
-        ) : (
-            <PendingMapView
-                title={translate('distance.mapPending.title')}
-                subtitle={isOffline ? translate('distance.mapPending.subtitle') : translate('distance.mapPending.onlineSubtitle')}
-                style={styles.mapEditView}
+    useFocusEffect(
+        useCallback(() => {
+            if (!mapLoaded || _.isEqual(lastUpdatedPositionRef.current, currentPosition)) {
+                return;
+            }
+
+            if (currentPosition) {
+                mapRef.current?.setCameraCoordinate(currentPosition, zoom);
+            } else {
+                OmhMapsLocationModule.getCurrentLocation().then((currentLocation) => {
+                    mapRef.current?.setCameraCoordinate(currentLocation, zoom);
+                    setCurrentPosition(currentLocation);
+
+                    lastUpdatedPositionRef.current = currentLocation;
+                });
+            }
+            // apart from the required dependencies, we also want to update the position when the map is re-loaded
+            // with a new provider selected
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [zoom, mapLoaded, currentPosition, mapProvider]),
+    );
+
+    useEffect(() => {
+        if (!waypoints || waypoints.length === 0 || !mapLoaded) {
+            return;
+        }
+        if (waypoints.length === 1) {
+            setCurrentPosition({
+                longitude: waypoints[0].coordinate[0],
+                latitude: waypoints[0].coordinate[1],
+            });
+            setZoom(DEFAULT_ZOOM);
+        } else {
+            const {southWest, northEast} = utils.getBounds(
+                waypoints.map((waypoint) => waypoint.coordinate),
+                directionCoordinates,
+            );
+
+            const meanLongitude = (southWest[0] + northEast[0]) / 2;
+            const meanLatitude = (southWest[1] + northEast[1]) / 2;
+
+            setCurrentPosition({
+                longitude: meanLongitude,
+                latitude: meanLatitude,
+            });
+
+            setZoom(utils.headingToFit(northEast[0], southWest[0], mapWidth));
+        }
+    }, [waypoints, directionCoordinates, mapLoaded, mapWidth]);
+
+    const MAP_PROVIDERS = useMemo(
+        () =>
+            Platform.OS === 'android'
+                ? [OmhMapsGoogleMapsProvider, OmhMapsOpenStreetMapProvider, OmhMapsMapboxProvider, OmhMapsAzureMapsProvider]
+                : [OmhMapsGoogleMapsIOSProvider, OmhMapsAppleMapsIOSProvider],
+        [],
+    );
+
+    return (
+        <View style={{paddingHorizontal: 15, flexDirection: 'column', flex: 1}}>
+            <ButtonWithDropdownMenu
+                success
+                pressOnEnter
+                onPress={() => {}}
+                onOptionSelected={({value: provider}) => {
+                    setMapLoaded(false);
+
+                    OmhMapsModule.initialize({
+                        iosProvider: Platform.OS === 'ios' ? provider : OmhMapsAppleMapsIOSProvider,
+                        gmsProvider: Platform.OS === 'android' ? provider : OmhMapsGoogleMapsProvider,
+                        nonGmsProvider: Platform.OS === 'android' ? provider : OmhMapsOpenStreetMapProvider,
+                    });
+
+                    setMapProvider(provider);
+                }}
+                options={MAP_PROVIDERS.map((provider) => ({
+                    text: provider.name,
+                    value: provider,
+                }))}
+                buttonSize={CONST.DROPDOWN_BUTTON_SIZE.LARGE}
+                enterKeyEventListenerPriority={1}
             />
-        );
-    },
-);
+
+            <OmhMapView
+                key={mapProvider.name}
+                onLayout={({
+                    nativeEvent: {
+                        layout: {width},
+                    },
+                }) => {
+                    setMapWidth(width);
+                }}
+                ref={mapRef}
+                style={style}
+                zoomEnabled
+                rotateEnabled={false}
+                myLocationEnabled={false}
+                onMapLoaded={(providerName) => {
+                    onMapReady?.();
+                    setMapLoaded(true);
+                    setMapProvider(MAP_PROVIDERS.find(({name}) => name === providerName) ?? OmhMapsGoogleMapsProvider);
+                }}
+            >
+                {!!directionCoordinates && (
+                    <OmhPolyline
+                        points={directionCoordinates.map((waypoint) => ({
+                            longitude: waypoint[0],
+                            latitude: waypoint[1],
+                        }))}
+                        color={GREEN_RGB_INT}
+                        width={20}
+                        jointType="miter"
+                    />
+                )}
+
+                {waypoints?.map(({coordinate, id}, index, {length}) => {
+                    const isStart = index === 0;
+                    const isEnd = index === length - 1;
+                    const isInBetweenStop = !isStart && !isEnd;
+
+                    return (
+                        <OmhMarker
+                            key={`waypoint-${id}`}
+                            position={{
+                                longitude: coordinate[0],
+                                latitude: coordinate[1],
+                            }}
+                            title={`Waypoint #${index + 1}`}
+                            snippet={`${isStart ? 'Start of' : isEnd ? 'End of' : 'Stop on'} journey`}
+                            backgroundColor={isStart ? GREEN_RGB_INT : isEnd ? TARGET_RGB_INT : undefined}
+                            icon={isInBetweenStop ? (stopMarkerIcon as any) : undefined}
+                            clickable
+                        />
+                    );
+                })}
+            </OmhMapView>
+        </View>
+    );
+}
 
 export default compose(
     withOnyx<ComponentProps, MapViewOnyxProps>({

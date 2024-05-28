@@ -7,6 +7,13 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
+-keep class com.microsoft.aad.adal.AuthenticationCallback { *; }
+-keep class com.microsoft.aad.adal.AuthenticationContext { *; }
+-keep class com.microsoft.aad.adal.IWindowComponent { *; }
+-keep class com.microsoft.aad.adal.PromptBehavior { *; }
+-keep class com.tobrun.datacompat.annotation.Default { *; }
+-keep class org.slf4j.impl.StaticLoggerBinder { *; }
+
 # Add any project specific keep options here:
 -keep class com.expensify.chat.BuildConfig { *; }
 -keep class com.facebook.** { *; }
@@ -46,3 +53,9 @@
 -dontwarn org.jmrtd.protocol.BACResult
 -dontwarn org.jmrtd.protocol.PACEResult
 -dontwarn org.spongycastle.jce.provider.BouncyCastleProvider
+-dontwarn com.microsoft.aad.adal.AuthenticationCallback
+-dontwarn com.microsoft.aad.adal.AuthenticationContext
+-dontwarn com.microsoft.aad.adal.IWindowComponent
+-dontwarn com.microsoft.aad.adal.PromptBehavior
+-dontwarn com.tobrun.datacompat.annotation.Default
+-dontwarn org.slf4j.impl.StaticLoggerBinder
